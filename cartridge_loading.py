@@ -31,7 +31,7 @@ def cartridge_frequency_response(
     
     Z_load = R_load || (1/jωC)  [parallel combination]
     
-    H(jω) = Z_load / (Z_cart + Z_load)
+    H(jω) = V_out / V_in = Z_load / (Z_cart + Z_load)
     
     where:
     Z_cart = R_cart + jωL
@@ -39,7 +39,7 @@ def cartridge_frequency_response(
     
     Returns:
         frequencies: array of frequencies in Hz
-        magnitude_dB: frequency response in dB
+        magnitude_dB: frequency response in dB (voltage ratio, 20*log10|H|)
         phase_deg: phase response in degrees
     """
     
@@ -87,11 +87,11 @@ def cartridge_frequency_response(
 
 def plot_cartridge_response(L_cart, R_cart, R_load, C_total, 
                            use_log_scale=True, output_file='cartridge_loading_response.png',
-                           output_dir='.'):
+                           output_dir='.', show_phase=True):
     """
-    Plot the frequency response with two subplots:
-    - Top: Full audible range (20 Hz - 20 kHz)
-    - Bottom: Extended ultrasonic range (20 Hz - 50 kHz)
+    Plot the frequency response with two subplots using dual y-axes:
+    - Top: Full audible range (20 Hz - 20 kHz) - magnitude on left, phase on right
+    - Bottom: Extended ultrasonic range (20 Hz - 50 kHz) - magnitude on left, phase on right
     """
     
     # Calculate responses for both ranges
@@ -106,70 +106,134 @@ def plot_cartridge_response(L_cart, R_cart, R_load, C_total,
     )
     
     # Create figure
-    plt.figure(figsize=(14, 10))
+    fig, (ax1, ax3) = plt.subplots(2, 1, figsize=(14, 10))
     
+    # ============================================================
     # Plot 1: Audible range (20 Hz - 20 kHz)
-    plt.subplot(2, 1, 1)
-    plt.plot(freq_audible, mag_audible, 'b-', linewidth=2, 
-             label=f'L={L_cart}mH, R_cart={R_cart}Ω, R_load={R_load}kΩ, C={C_total}pF')
-    
-    # Mark the resonant frequency
+    # ============================================================
+    # Calculate peak values first
     peak_idx = np.argmax(mag_audible)
     peak_freq = freq_audible[peak_idx]
     peak_mag = mag_audible[peak_idx]
-    plt.plot(peak_freq, peak_mag, 'ro', markersize=8, 
-             label=f'Peak: {peak_freq:.0f}Hz @ {peak_mag:.2f}dB (Q={Q:.2f})')
     
-    plt.xlabel('Frequency (Hz)', fontsize=11)
-    plt.ylabel('Magnitude (dB)', fontsize=11)
-    plt.title(f'Cartridge Loading Frequency Response - Audible Range (20 Hz - 20 kHz)\n' + 
-              f'{"Logarithmic" if use_log_scale else "Linear"} frequency scale', fontsize=12)
+    # Left y-axis: Magnitude
+    line1 = ax1.plot(freq_audible, mag_audible, 'b-', linewidth=2.5, 
+             label=f'Magnitude (Peak: {peak_freq:.0f}Hz @ {peak_mag:.2f}dB, Q={Q:.2f})')
+    
+    # Mark the resonant frequency
+    ax1.plot(peak_freq, peak_mag, 'bo', markersize=8)
+    
+    ax1.set_xlabel('Frequency (Hz)', fontsize=11)
+    ax1.set_ylabel('Magnitude (dBV)', fontsize=11, color='b')
+    ax1.tick_params(axis='y', labelcolor='b')
+    ax1.set_title(f'Frequency Response - Audible Range (20 Hz - 20 kHz)\n' + 
+                  f'{"Logarithmic" if use_log_scale else "Linear"} frequency scale', fontsize=12, fontweight='bold')
     
     if use_log_scale:
-        plt.xscale('log')
-        plt.xlim(20, 20000)
+        ax1.set_xscale('log')
+        ax1.set_xlim(20, 20000)
     else:
-        plt.xlim(20, 20000)
+        ax1.set_xlim(20, 20000)
     
-    plt.grid(True, alpha=0.3, which='both' if use_log_scale else 'major')
-    plt.legend(fontsize=9)
+    ax1.grid(True, alpha=0.3, which='both' if use_log_scale else 'major')
     
-    # Add y-axis reference lines
-    plt.axhline(y=0, color='k', linestyle='--', alpha=0.3, linewidth=0.8)
-    plt.axhline(y=3, color='r', linestyle='--', alpha=0.2, linewidth=0.8, label='±3dB')
-    plt.axhline(y=-3, color='r', linestyle='--', alpha=0.2, linewidth=0.8)
+    # Add y-axis reference lines for magnitude
+    ax1.axhline(y=0, color='b', linestyle='--', alpha=0.3, linewidth=0.8)
+    ax1.axhline(y=3, color='b', linestyle=':', alpha=0.2, linewidth=0.8)
+    ax1.axhline(y=-3, color='b', linestyle=':', alpha=0.2, linewidth=0.8)
     
+    # Right y-axis: Phase (if enabled)
+    if show_phase:
+        ax1_phase = ax1.twinx()
+        line2 = ax1_phase.plot(freq_audible, phase_audible, 'g-', linewidth=2, alpha=0.7,
+                               label=f'Phase (@ peak: {phase_audible[peak_idx]:.1f}°)')
+        
+        # Mark phase at peak frequency
+        phase_at_peak = phase_audible[peak_idx]
+        ax1_phase.plot(peak_freq, phase_at_peak, 'go', markersize=8)
+        
+        ax1_phase.set_ylabel('Phase (degrees)', fontsize=11, color='g')
+        ax1_phase.tick_params(axis='y', labelcolor='g')
+        
+        # Add reference lines for phase
+        ax1_phase.axhline(y=0, color='g', linestyle='--', alpha=0.2, linewidth=0.8)
+        ax1_phase.axhline(y=-90, color='g', linestyle=':', alpha=0.3, linewidth=1)
+        
+        # Combine legends
+        lines = line1 + line2
+        labs = [l.get_label() for l in lines]
+        ax1.legend(lines, labs, loc='lower left', fontsize=9)
+    else:
+        ax1.legend(loc='lower left', fontsize=9)
+    
+    # ============================================================
     # Plot 2: Extended ultrasonic range (20 Hz - 50 kHz)
-    plt.subplot(2, 1, 2)
-    plt.plot(freq_extended, mag_extended, 'b-', linewidth=2)
-    
-    # Mark the resonant frequency on this plot too
+    # ============================================================
+    # Calculate peak values first
     peak_idx_ext = np.argmax(mag_extended)
     peak_freq_ext = freq_extended[peak_idx_ext]
     peak_mag_ext = mag_extended[peak_idx_ext]
-    plt.plot(peak_freq_ext, peak_mag_ext, 'ro', markersize=8)
+    
+    # Left y-axis: Magnitude
+    line3 = ax3.plot(freq_extended, mag_extended, 'b-', linewidth=2.5, 
+                     label=f'Magnitude (Peak: {peak_freq_ext:.0f}Hz @ {peak_mag_ext:.2f}dB, Ideal LC: {f_res:.0f}Hz)')
+    
+    # Mark the resonant frequency
+    ax3.plot(peak_freq_ext, peak_mag_ext, 'bo', markersize=8)
     
     # Show the theoretical LC resonance frequency
-    plt.axvline(x=f_res, color='orange', linestyle=':', alpha=0.5, linewidth=2,
-                label=f'Ideal LC resonance: {f_res:.0f}Hz')
+    ax3.axvline(x=f_res, color='orange', linestyle=':', alpha=0.6, linewidth=2.5,
+                label=f'Ideal LC: {f_res:.0f}Hz')
     
-    plt.xlabel('Frequency (Hz)', fontsize=11)
-    plt.ylabel('Magnitude (dB)', fontsize=11)
-    plt.title(f'Extended Range - Including Ultrasonic (20 Hz - 50 kHz)', fontsize=12)
+    ax3.set_xlabel('Frequency (Hz)', fontsize=11)
+    ax3.set_ylabel('Magnitude (dBV)', fontsize=11, color='b')
+    ax3.tick_params(axis='y', labelcolor='b')
+    ax3.set_title(f'Frequency Response - Extended Range (20 Hz - 50 kHz)', fontsize=12, fontweight='bold')
     
     if use_log_scale:
-        plt.xscale('log')
-        plt.xlim(20, 50000)
+        ax3.set_xscale('log')
+        ax3.set_xlim(20, 50000)
     else:
-        plt.xlim(20, 50000)
+        ax3.set_xlim(20, 50000)
     
-    plt.grid(True, alpha=0.3, which='both' if use_log_scale else 'major')
-    plt.legend(fontsize=9)
+    ax3.grid(True, alpha=0.3, which='both' if use_log_scale else 'major')
     
-    # Add y-axis reference lines
-    plt.axhline(y=0, color='k', linestyle='--', alpha=0.3, linewidth=0.8)
-    plt.axhline(y=3, color='r', linestyle='--', alpha=0.2, linewidth=0.8)
-    plt.axhline(y=-3, color='r', linestyle='--', alpha=0.2, linewidth=0.8)
+    # Add y-axis reference lines for magnitude
+    ax3.axhline(y=0, color='b', linestyle='--', alpha=0.3, linewidth=0.8)
+    ax3.axhline(y=3, color='b', linestyle=':', alpha=0.2, linewidth=0.8)
+    ax3.axhline(y=-3, color='b', linestyle=':', alpha=0.2, linewidth=0.8)
+    
+    # Right y-axis: Phase (if enabled)
+    if show_phase:
+        ax3_phase = ax3.twinx()
+        
+        # Calculate phase at peak and ideal LC
+        phase_at_peak_ext = phase_extended[peak_idx_ext]
+        idx_ideal = np.argmin(np.abs(freq_extended - f_res))
+        phase_at_ideal = phase_extended[idx_ideal]
+        
+        line4 = ax3_phase.plot(freq_extended, phase_extended, 'g-', linewidth=2, alpha=0.7,
+                               label=f'Phase (@ peak: {phase_at_peak_ext:.1f}°, @ ideal LC: {phase_at_ideal:.1f}°)')
+        
+        # Mark phase at peak frequency
+        ax3_phase.plot(peak_freq_ext, phase_at_peak_ext, 'go', markersize=8)
+        
+        # Mark the ideal LC resonance line on phase axis too
+        ax3_phase.axvline(x=f_res, color='orange', linestyle=':', alpha=0.3, linewidth=1.5)
+        
+        ax3_phase.set_ylabel('Phase (degrees)', fontsize=11, color='g')
+        ax3_phase.tick_params(axis='y', labelcolor='g')
+        
+        # Add reference lines for phase
+        ax3_phase.axhline(y=0, color='g', linestyle='--', alpha=0.2, linewidth=0.8)
+        ax3_phase.axhline(y=-90, color='g', linestyle=':', alpha=0.3, linewidth=1)
+        
+        # Combine legends
+        lines = line3 + line4
+        labs = [l.get_label() for l in lines]
+        ax3.legend(lines, labs, loc='lower left', fontsize=9)
+    else:
+        ax3.legend(loc='lower left', fontsize=9)
     
     plt.tight_layout()
     
@@ -223,20 +287,22 @@ if __name__ == "__main__":
             R_load = float(sys.argv[3])
             C_total = float(sys.argv[4])
             use_log = sys.argv[5].lower() in ['log', 'logarithmic', 'true', '1'] if len(sys.argv) > 5 else True
+            show_phase = sys.argv[6].lower() in ['phase', 'true', '1', 'yes'] if len(sys.argv) > 6 else True
             
             print(f"\nGenerating cartridge loading plot...")
-            plot_cartridge_response(L_cart, R_cart, R_load, C_total, use_log)
+            plot_cartridge_response(L_cart, R_cart, R_load, C_total, use_log, show_phase=show_phase)
             
         except (IndexError, ValueError) as e:
-            print("\nUsage: python cartridge_loading.py L_cart R_cart R_load C_total [scale]")
+            print("\nUsage: python cartridge_loading.py L_cart R_cart R_load C_total [scale] [phase]")
             print("\nArguments:")
             print("  L_cart   : Cartridge inductance in mH")
             print("  R_cart   : Cartridge DC resistance in Ω")
             print("  R_load   : Preamp load resistance in kΩ")
             print("  C_total  : Total capacitance (cable + preamp) in pF")
             print("  scale    : 'log' or 'linear' (optional, default: log)")
+            print("  phase    : 'yes' or 'no' to show phase plots (optional, default: yes)")
             print("\nExample:")
-            print("  python cartridge_loading.py 500 600 47 200 log")
+            print("  python cartridge_loading.py 500 600 47 200 log yes")
             sys.exit(1)
     else:
         # Interactive mode
@@ -262,8 +328,11 @@ if __name__ == "__main__":
             scale_input = input("Frequency scale (log/linear) [log]: ").strip().lower()
             use_log = scale_input in ['', 'log', 'logarithmic']
             
+            phase_input = input("Show phase response? (yes/no) [yes]: ").strip().lower()
+            show_phase = phase_input in ['', 'yes', 'y', 'true', '1']
+            
             print(f"\nGenerating cartridge loading plot...")
-            plot_cartridge_response(L_cart, R_cart, R_load, C_total, use_log)
+            plot_cartridge_response(L_cart, R_cart, R_load, C_total, use_log, show_phase=show_phase)
             
         except ValueError as e:
             print(f"\n✗ Error: Invalid input - {e}")
