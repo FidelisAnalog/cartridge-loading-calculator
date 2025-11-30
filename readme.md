@@ -97,11 +97,6 @@ The script produces:
 - **3-6 dB**: Noticeable treble boost, may sound bright
 - **> 6 dB**: Significant peak, likely too bright
 
-### Recommendations
-- If peak is too high (>3 dB), reduce capacitance
-- If peak is in audible range (<15 kHz), it's more noticeable
-- If peak is ultrasonic (>20 kHz), effect is mainly on transient response
-
 ## Log vs Linear Scale
 
 **Logarithmic (recommended for most uses):**
@@ -110,7 +105,6 @@ The script produces:
 - Easier to see bass, midrange, and treble equally
 
 **Linear:**
-- Same as AlignmentProtractor.com uses
 - Emphasizes treble region
 - Makes high-frequency problems very visible
 - 1 kHz appears at 5% of plot width
