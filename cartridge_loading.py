@@ -12,6 +12,7 @@ This forms a voltage divider where:
 - Output voltage is taken across the parallel combination of R_load and C
 """
 
+import os
 import numpy as np
 import matplotlib.pyplot as plt
 
@@ -85,7 +86,8 @@ def cartridge_frequency_response(
 
 
 def plot_cartridge_response(L_cart, R_cart, R_load, C_total, 
-                           use_log_scale=True, output_file='cartridge_loading_response.png'):
+                           use_log_scale=True, output_file='cartridge_loading_response.png',
+                           output_dir='.'):
     """
     Plot the frequency response with two subplots:
     - Top: Full audible range (20 Hz - 20 kHz)
@@ -170,8 +172,13 @@ def plot_cartridge_response(L_cart, R_cart, R_load, C_total,
     plt.axhline(y=-3, color='r', linestyle='--', alpha=0.2, linewidth=0.8)
     
     plt.tight_layout()
-    plt.savefig(f'/mnt/user-data/outputs/{output_file}', dpi=150, bbox_inches='tight')
-    print(f"\n✓ Plot saved to: {output_file}")
+    
+    # Create output directory if it doesn't exist
+    os.makedirs(output_dir, exist_ok=True)
+    output_path = os.path.join(output_dir, output_file)
+    
+    plt.savefig(output_path, dpi=150, bbox_inches='tight')
+    print(f"\n✓ Plot saved to: {output_path}")
     
     # Print diagnostic information
     print("\n" + "="*60)
